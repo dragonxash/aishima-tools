@@ -1,0 +1,2034 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1b2430">
+<title>PC-98 HDI 镜像解包器</title>
+<style>
+  :root{
+    --bg:#f4f6f8; --card:#fff; --line:#e2e6ea; --ink:#1b2430; --dim:#6b7684;
+    --acc:#2c6bed; --acc-ink:#fff; --warn:#b4551c; --ok:#1a7f4b;
+    --r:12px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+    padding:0 0 env(safe-area-inset-bottom);
+  }
+  header{
+    background:linear-gradient(135deg,#1b2430,#2c3a4d); color:#fff;
+    padding:calc(env(safe-area-inset-top) + 18px) 16px 18px;
+  }
+  header h1{margin:0;font-size:19px;letter-spacing:.5px}
+  header p{margin:4px 0 0;font-size:12.5px;color:#9fb0c4}
+  main{padding:14px 12px 40px;max-width:860px;margin:0 auto}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:12px}
+  .drop{
+    border:2px dashed #c3ccd6;border-radius:var(--r);background:var(--card);
+    padding:28px 16px;text-align:center;color:var(--dim);cursor:pointer;
+  }
+  .drop.hot{border-color:var(--acc);background:#eef4ff;color:var(--acc)}
+  .drop b{display:block;font-size:16px;color:var(--ink);margin-bottom:6px}
+  input[type=file]{display:none}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    min-height:40px;padding:0 14px;border-radius:9px;border:1px solid var(--line);
+    background:#fff;color:var(--ink);font-size:14px;cursor:pointer;
+  }
+  .btn:active{transform:scale(.985)}
+  .btn.pri{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
+  .btn[disabled]{opacity:.45;pointer-events:none}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  h2{font-size:14px;margin:0 0 10px;color:var(--dim);font-weight:600;letter-spacing:.3px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  td{padding:5px 0;vertical-align:top;border-bottom:1px solid #f0f2f4}
+  td:first-child{color:var(--dim);width:40%;padding-right:8px}
+  td:last-child{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;word-break:break-all}
+  .crumb{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;margin-bottom:10px}
+  .crumb button{
+    border:0;background:#eef1f5;color:var(--ink);border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer;min-height:34px
+  }
+  .crumb span{color:var(--dim)}
+  ul.files{list-style:none;margin:0;padding:0}
+  ul.files li{
+    display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid #f0f2f4;
+  }
+  ul.files li:last-child{border-bottom:0}
+  .ico{
+    flex:0 0 34px;height:34px;border-radius:8px;display:grid;place-items:center;
+    font-size:11px;font-weight:700;background:#eef1f5;color:#5a6675;letter-spacing:-.5px
+  }
+  .ico.dir{background:#fff3d6;color:#9a6b00}
+  .ico.sys{background:#eae4f7;color:#5b3fa8}
+  .meta{flex:1;min-width:0}
+  .meta .n{font-size:14.5px;word-break:break-all}
+  .meta .s{font-size:12px;color:var(--dim);margin-top:1px}
+  .acts{display:flex;gap:6px;flex:0 0 auto}
+  .acts button{
+    border:1px solid var(--line);background:#fff;border-radius:8px;min-width:44px;min-height:36px;
+    font-size:13px;color:var(--acc);cursor:pointer;padding:0 9px
+  }
+  .tag{display:inline-block;font-size:10.5px;padding:1px 5px;border-radius:5px;background:#eef1f5;color:var(--dim);margin-left:5px}
+  pre.out{
+    margin:0;background:#0f1620;color:#c8d6e5;border-radius:10px;padding:12px;overflow:auto;
+    font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;max-height:52vh;white-space:pre-wrap;word-break:break-all
+  }
+  .msg{font-size:13.5px;padding:10px 12px;border-radius:9px;margin-bottom:12px}
+  .msg.err{background:#fdecea;color:#a3241a}
+  .msg.ok{background:#e8f6ee;color:var(--ok)}
+  .bar{height:6px;border-radius:3px;background:#e9edf2;overflow:hidden;margin-top:10px}
+  .bar i{display:block;height:100%;width:0;background:var(--acc);transition:width .12s linear}
+  .hint{font-size:12px;color:var(--dim);margin-top:8px;line-height:1.6}
+  .hidden{display:none!important}
+  footer{color:var(--dim);font-size:12px;text-align:center;padding:0 16px 24px}
+
+  /* ---- 格式预览器 ---- */
+  .pv-path{font-size:12px;color:var(--dim);margin-top:3px;word-break:break-all}
+  .pv-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--dim);margin-bottom:10px}
+  .pv-kind{background:#eef4ff;color:var(--acc);border-radius:6px;padding:2px 8px;font-size:12px}
+  .pv-note{flex:1;min-width:0}
+  .pv-size{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .pv-diag{font-size:12px;color:var(--dim);background:#f6f8fa;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.75}
+  .pv-diag b{color:var(--ink)}
+  .seedlab{margin-left:8px}
+  .seedlab select{border:1px solid var(--line);border-radius:6px;padding:2px 6px;font-size:12px;background:#fff;color:var(--ink)}
+  .pv-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .pv-tools .filter{flex:1;min-width:140px;border:1px solid var(--line);border-radius:9px;padding:0 10px;min-height:38px;font-size:14px;background:#fff;color:var(--ink)}
+  .pv-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .canvas-wrap{background:#22201c;border-radius:10px;padding:12px;overflow:auto;text-align:center}
+  .canvas-wrap canvas{image-rendering:pixelated;max-width:100%;height:auto}
+  .pal{display:flex;gap:3px;flex-wrap:wrap;margin:10px 0}
+  .pal span{width:24px;height:24px;border-radius:4px;border:1px solid rgba(0,0,0,.15)}
+  table.ents{width:100%;border-collapse:collapse;font-size:13px}
+  table.ents th{text-align:left;font-size:12px;color:var(--dim);font-weight:600;border-bottom:1px solid var(--line);padding:6px 4px}
+  table.ents td{padding:6px 4px;border-bottom:1px solid #f0f2f4;vertical-align:middle}
+  table.ents tr.row{cursor:pointer}
+  table.ents tr.row:hover{background:#f6f9ff}
+  table.ents td.nm{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  table.ents td.num{text-align:right;color:var(--dim);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  table.ents tr.bad td{color:#a3241a}
+  .tag.t-cg{background:#e8f6ee;color:#1a7f4b}
+  .tag.t-mes{background:#fdeeea;color:#b4551c}
+  .tag.t-arc{background:#eae4f7;color:#5b3fa8}
+  .tag.t-bad{background:#fdecea;color:#a3241a}
+  .tag.t-sksdat{background:#eae4f7;color:#5b3fa8}
+  .tag.t-gp4{background:#e8f6ee;color:#1a7f4b}
+  .tag.t-mes2{background:#fdeeea;color:#b4551c}
+  .r-ok{color:var(--ok)} .r-warn{color:var(--warn)} .r-err{color:#a3241a}
+  details.dict{margin-bottom:10px}
+  details.dict summary{cursor:pointer;font-size:13px;color:var(--acc);padding:4px 0}
+  table.dict-t{width:100%;border-collapse:collapse;font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  table.dict-t th{text-align:center;color:var(--dim);font-weight:600;border-bottom:1px solid var(--line);padding:3px}
+  table.dict-t td{border:1px solid #f0f2f4;padding:2px 4px;text-align:center}
+  .btn.sm{min-height:32px;padding:0 10px;font-size:12.5px}
+  pre.out.text{background:#fdfcf9;color:var(--ink);border:1px solid var(--line);
+    font-size:14px;line-height:1.9;white-space:pre-wrap;word-break:break-word;max-height:60vh}
+</style>
+</head>
+<body>
+<header>
+  <h1>PC-98 工具箱</h1>
+  <p>HDI 镜像 · ELF sksdat 归档 · GP4 图像 · MES 剧本 · 纯浏览器本地解析</p>
+</header>
+
+<main>
+  <div id="msgs"></div>
+
+  <div class="drop" id="drop">
+    <b>选择镜像 或 单个文件</b>
+    .hdi / .fdi / .hdm 镜像，或直接扔 .GP4 / .MES / SILK?.DAT 进来<br>
+    <span style="font-size:12px">文件不会上传到任何服务器，全部在你的设备上解析</span>
+  </div>
+  <input type="file" id="picker" accept=".hdi,.fdi,.hdm,.hdd,.thd,.vhd,.img,.bin,.dsk,.hd4,.hd5,.dd6,.dd9,.gp4,.mes,.dat,.txt,application/octet-stream">
+  <input type="file" id="soloPicker" accept=".gp4,.mes,.dat,.txt,.mag,application/octet-stream">
+  <div class="row" style="margin-top:10px;justify-content:center">
+    <button class="btn" id="soloBtn">或直接打开 GP4 / MES / DAT 文件</button>
+  </div>
+  <input type="file" id="importPicker" multiple>
+
+  <section class="card hidden" id="infoCard">
+    <h2>镜像信息</h2>
+    <table id="infoTable"></table>
+  </section>
+
+  <section class="card hidden" id="filesCard">
+    <div class="crumb" id="crumb"></div>
+    <div class="row" style="margin-bottom:10px">
+      <button class="btn pri" id="zipBtn">打包全部为 ZIP</button>
+      <button class="btn" id="importBtn">导入文件</button>
+      <button class="btn" id="saveBtn" disabled>保存镜像</button>
+      <button class="btn" id="closeBtn">关闭镜像</button>
+    </div>
+    <div id="spaceTip" class="hint" style="margin:-4px 0 8px"></div>
+    <div id="dirtyTip" class="msg ok hidden">镜像已被修改，点"保存镜像"导出一个新文件（原文件不会被改动）</div>
+    <div class="bar hidden" id="bar"><i></i></div>
+    <ul class="files" id="list"></ul>
+  </section>
+
+  <section class="card hidden" id="prevCard">
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="min-width:0">
+        <h2 style="margin:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span id="prevTitle">预览</span><span class="tag" id="prevTag"></span>
+        </h2>
+        <div class="pv-path" id="prevPath"></div>
+      </div>
+      <div style="display:flex;gap:6px;flex:0 0 auto">
+        <button class="btn hidden" id="prevBack">‹ 返回</button>
+        <button class="btn" id="prevClose">收起</button>
+      </div>
+    </div>
+    <div class="pv" id="prevBody"></div>
+  </section>
+
+  <div class="card">
+    <h2>支持的格式</h2>
+    <div class="hint">
+      <b>HDI</b> 硬盘镜像（Anex86，4096 字节头）·
+      <b>FDI</b> 软盘镜像（和 HDI 同一套头）·
+      <b>HDM</b> 裸软盘镜像（就是 FDI 去掉那 4096 字节头）·
+      其它裸盘镜像（.img/.bin/.hd4/.hd5 等）<br>
+      文件系统为 FAT12 / FAT16。参数（分区位置、逻辑扇区大小、簇大小、FAT 类型）全部自动探测——
+      PC-98 镜像经常不按常理出牌：逻辑扇区可能是 1024 而不是 512，带 BPB 的引导扇区常常藏在中间的某个扇区里。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>读写怎么用</h2>
+    <div class="hint">
+      <b>读：</b>浏览目录 → 预览（Shift-JIS 文本自动转码，二进制显示十六进制）→ 单文件下载，或"打包全部为 ZIP"。<br>
+      <b>写：</b>"导入文件"把手机里的文件塞进当前目录（日文名会自动转成 Shift-JIS 8.3）；
+      "删除"删掉选中的文件；改完之后点"保存镜像"导出一个新文件。<br>
+      <b>原镜像永远不会被改动</b>，修改只存在内存里，保存时输出一个 <b>xxx_modified.hdi</b> 的新文件。<br>
+      <span style="color:var(--warn)">软盘镜像通常只剩几十 KB～几百 KB 空间，导入前留意下方显示的剩余容量。</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>怎么搬到手机上</h2>
+    <div class="hint">
+      1. 把这个 <b>index.html</b> 通过微信/QQ/数据线发到手机，用手机浏览器打开（Chrome / Edge / Safari 都可以），加入主屏幕即可当 App 用。<br>
+      2. 或者让我把它部署成一个网址，手机直接访问。<br>
+      3. 手机上的镜像文件必须放在<b>手机本地存储</b>里（用"文件管理"选），网盘里的需要先下载。<br>
+      4. 全程不联网，解析和抽文件都在你手机上完成。
+    </div>
+  </div>
+</main>
+
+<footer>支持 HDI / FDI（4096 字节 Anex86 头）与 HDM 等裸盘镜像 · FAT12/16 读写 · 自动探测分区位置、逻辑扇区大小与 FAT 类型</footer>
+
+<script>
+/* ===== js/hdi.js (内联) ===== */
+// ==CORE_START==
+/* ------------------------------------------------------------------
+   PC-98 HDI (Anex86) + FAT12/16 解析核心（不依赖 DOM，可在 Node 中测试）
+   ------------------------------------------------------------------ */
+(function (root) {
+  'use strict';
+
+  /* --- 随机读取封装：只按需要 slice，不把大镜像整体读进内存 --- */
+  function RandomAccess(file) {
+    this.file = file;
+    this.size = file.size;
+  }
+  RandomAccess.prototype.read = async function (off, len) {
+    if (!(len > 0) || off < 0 || off >= this.size) return new Uint8Array(0);
+    const end = Math.min(off + len, this.size);
+    const buf = await this.file.slice(off, end).arrayBuffer();
+    return new Uint8Array(buf);
+  };
+
+  /* --- 写时复制覆盖层：原镜像文件保持只读，改动只记在内存的 4KB 脏块里 ---
+     这样即使打开几十 MB 的镜像，内存占用也只跟"改了多少"有关。            */
+  const BLK = 4096;
+  function Overlay(rf) {
+    this.rf = rf;
+    this.dirty = new Map();     // 块号 -> Uint8Array(BLK)
+  }
+  Overlay.prototype.read = async function (off, len) {
+    const out = new Uint8Array(len);
+    let pos = 0;
+    while (pos < len) {
+      const cur = off + pos;
+      const bi = Math.floor(cur / BLK), inb = cur - bi * BLK;
+      const d = this.dirty.get(bi);
+      if (d) {
+        const n = Math.min(len - pos, BLK - inb);
+        out.set(d.subarray(inb, inb + n), pos);
+        pos += n;
+      } else {
+        const want = Math.min(len - pos, BLK - inb);
+        const chunk = await this.rf.read(cur, want);
+        if (!chunk.length) break;
+        out.set(chunk, pos);
+        pos += chunk.length;
+      }
+    }
+    return out.subarray(0, pos);
+  };
+  Overlay.prototype.write = async function (off, u8) {
+    let pos = 0;
+    while (pos < u8.length) {
+      const cur = off + pos;
+      const bi = Math.floor(cur / BLK), inb = cur - bi * BLK;
+      let d = this.dirty.get(bi);
+      if (!d) {
+        d = new Uint8Array(BLK);
+        d.set(await this.rf.read(bi * BLK, BLK));
+        this.dirty.set(bi, d);
+      }
+      const n = Math.min(u8.length - pos, BLK - inb);
+      d.set(u8.subarray(pos, pos + n), inb);
+      pos += n;
+    }
+  };
+
+  /* --- Shift-JIS 解码（PC-98 文件名/文本） --- */
+  let sjisDecoder = null;
+  try { sjisDecoder = new TextDecoder('shift_jis'); } catch (e) {}
+  function decodeSJIS(bytes) {
+    if (sjisDecoder) {
+      try { return sjisDecoder.decode(bytes); } catch (e) {}
+    }
+    let s = '';
+    for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return s;
+  }
+
+  /* --- Shift-JIS 编码：浏览器只自带解码器，这里反向扫描建表 ---
+     写文件名时必须用，否则日文名存进镜像会变成乱码。              */
+  let sjisEncTable = null;
+  function buildSJISEncTable() {
+    if (sjisEncTable || !sjisDecoder) return sjisEncTable;
+    const m = new Map();
+    const one = new Uint8Array(1), two = new Uint8Array(2);
+    const put = (ch, bytes) => { if (!m.has(ch)) m.set(ch, bytes); };
+    for (let b = 0x20; b < 0x100; b++) {
+      one[0] = b;
+      const s = sjisDecoder.decode(one);
+      if (s.length === 1 && s !== '\uFFFD') put(s, [b]);
+    }
+    for (let hi = 0x81; hi <= 0xFC; hi++) {
+      two[0] = hi;
+      for (let lo = 0x40; lo <= 0xFC; lo++) {
+        if (lo === 0x7F) continue;
+        two[1] = lo;
+        const s = sjisDecoder.decode(two);
+        if (s.length === 1 && s !== '\uFFFD') put(s, [hi, lo]);
+      }
+    }
+    sjisEncTable = m;
+    return m;
+  }
+  function encodeSJIS(str) {
+    const t = buildSJISEncTable();
+    const out = [];
+    if (!t) {   // 没有 shift_jis 解码器可用时退回 ASCII
+      for (let i = 0; i < str.length; i++) {
+        const c = str.charCodeAt(i);
+        out.push(c < 0x80 ? c : 0x5F);
+      }
+      return Uint8Array.from(out);
+    }
+    for (const ch of str) {
+      const v = t.get(ch);
+      if (v) out.push(...v);
+      else { const c = ch.codePointAt(0); out.push(c < 0x80 ? c : 0x5F); }
+    }
+    return Uint8Array.from(out);
+  }
+
+  const BAD_NAME = new Set([0x22,0x2A,0x2B,0x2C,0x2E,0x2F,0x3A,0x3B,0x3C,0x3D,0x3E,0x3F,0x5B,0x5C,0x5D,0x7C]);
+  function nameValid(n11) {
+    if (n11[0] === 0x00 || n11[0] === 0xE5) return false;
+    for (let i = 0; i < 11; i++) {
+      const c = n11[i];
+      if (c < 0x20 || BAD_NAME.has(c)) return false;
+    }
+    return true;
+  }
+  function entryName(e) {
+    const base = decodeSJIS(e.subarray(0, 8)).replace(/\s+$/, '');
+    const ext = decodeSJIS(e.subarray(8, 11)).replace(/\s+$/, '');
+    return ext ? base + '.' + ext : base;
+  }
+
+  const MEDIA_OK = new Set([0xF0,0xF8,0xF9,0xFA,0xFB,0xFC,0xFD,0xFE,0xFF]);
+
+  /* BKDSK / HDM 系裸软盘镜像：靠文件总大小反推几何参数 */
+  const FLOPPY_SIZES = [
+    [1261568, 1024,  8, 2, 77, 'HDM · 2HD 1.2MB (1024B×8×2×77)'],
+    [1228800,  512, 15, 2, 80, 'HD5 · 2HD 1.2MB (512B×15×2×80)'],
+    [1474560,  512, 18, 2, 80, 'HD4 · 2HD 1.44MB (512B×18×2×80)'],
+    [ 737280,  512,  9, 2, 80, 'DD9 · 2DD 720KB (512B×9×2×80)'],
+    [ 655360,  512,  8, 2, 80, 'DD6 · 2DD 640KB (512B×8×2×80)'],
+  ];
+
+  /* --- 容器头 ---
+     HDI（Anex86 硬盘镜像）与 FDI（Anex86 软盘镜像）用的是同一个 4096 字节头：
+       +0  4B 保留    +4  4B 磁盘类型   +8  4B 头部大小(通常 4096)  +12 4B 数据区大小
+       +16 4B 物理扇区大小  +20 4B 每磁道扇区数  +24 4B 磁头数  +28 4B 柱面数
+     HDM 就是 FDI 去掉这个头之后的裸数据（fdi[4096:] === hdm）。               */
+  async function probeHeader(rf, fileName) {
+    const ext = (fileName || '').toLowerCase().split('.').pop();
+    const h = await rf.read(0, 32);
+    if (h.length === 32) {
+      const u = new DataView(h.buffer, h.byteOffset, 32);
+      const hdr = u.getUint32(8, true), dsz = u.getUint32(12, true), ps = u.getUint32(16, true);
+      if (hdr >= 512 && hdr < rf.size && hdr + dsz === rf.size && (ps === 256 || ps === 512 || ps === 1024)) {
+        return { hdrSize: hdr, physSec: ps, spt: u.getUint32(20, true), heads: u.getUint32(24, true),
+                 cyl: u.getUint32(28, true), kind: ext === 'fdi' ? 'fdi' : 'hdi',
+                 diskType: (ext === 'fdi' ? 'FDI' : 'HDI') + ' (Anex86，头部 ' + hdr + ' 字节)' };
+      }
+    }
+    const f = FLOPPY_SIZES.find(x => x[0] === rf.size);
+    if (f) return { hdrSize: 0, physSec: f[1], spt: f[2], heads: f[3], cyl: f[4],
+                    kind: 'raw', diskType: 'HDM 裸软盘镜像 · ' + f[5] };
+    return { hdrSize: 0, physSec: 512, spt: 0, heads: 0, cyl: 0, kind: 'raw',
+             diskType: '裸镜像（无容器头，按 512 字节扇区处理）' };
+  }
+
+  /* --- 主对象（扫描 BPB 在 open() 里；PC-98 镜像的 0 号扇区是 IPL1 主引导，
+         真正的 FAT 引导扇区藏在分区起点，且逻辑扇区常常是 1024 而不是 512） --- */
+  function HdiImage(file) {
+    this.file = file;
+    this.rf = new RandomAccess(file);
+    this.rd = new Overlay(this.rf);      // 所有读取都经过覆盖层，这样刚写进去的内容马上能读回来
+    this.name = file.name || 'image.hdi';
+    this.size = file.size;
+    this.modified = false;
+  }
+
+  HdiImage.prototype.open = async function () {
+    const rf = this.rf;
+    const hd = await probeHeader(rf, this.name);
+    this.hdr = hd;
+    const base = hd.hdrSize;
+
+    // 用 256 字节作为扫描粒度：256/512/1024/2048 对齐的引导扇区都能命中。
+    // 注意所有地址最终都按字节计算，扫描粒度只影响"从哪些位置去试读 BPB"。
+    const STEP = 256, CHUNK = 256;                 // 每次读 64KB
+    const scanMax = Math.min(8192, Math.floor((rf.size - base) / STEP));
+    let best = null;
+
+    for (let s0 = 0; s0 < scanMax; s0 += CHUNK) {
+      const n = Math.min(CHUNK, scanMax - s0);
+      const buf = await rf.read(base + s0 * STEP, n * STEP);
+      for (let i = 0; i < n; i++) {
+        const bpb = parseBPBAt(buf, i * STEP);
+        if (!bpb) continue;
+        for (const tot of bpb.tots) {
+          const cand = layout(base, base + (s0 + i) * STEP, hd.physSec, bpb, rf.size, tot);
+          if (!cand) continue;
+          const sc = await this.scoreLayout(cand);
+          if (sc > 0 && (!best || sc > best.score)) { cand.score = sc; best = cand; }
+        }
+      }
+    }
+    if (!best) throw new Error('没找到 FAT 分区。这个镜像可能不是 PC-98 的 DOS 格式盘，也不是标准的硬盘/软盘镜像（有些游戏盘是厂商自定义格式，没有文件系统，只能整盘查看）。');
+
+    // 裸镜像的物理扇区大小以 BPB 为准（HDM 之类没有容器头可查）
+    if (hd.kind === 'raw') { hd.physSec = best.bps; best.physSec = best.bps; }
+    best.volSector = (best.volStart - base) / hd.physSec;
+    this.vol = best;
+    // 缓存整张 FAT（软盘 2KB，硬盘一般几十 KB）
+    this.fat = await this.rd.read(best.fatOff, best.spf * best.bps);
+    return this;
+  };
+
+  HdiImage.prototype.scoreLayout = async function (L) {
+    const rootBytes = L.rootent * 32;
+    const buf = await this.rd.read(L.rootOff, Math.min(rootBytes, 32 * 64));
+    let good = 0;
+    for (let i = 0; i + 32 <= buf.length; i += 32) {
+      const e = buf.subarray(i, i + 32);
+      if (e[0] === 0x00) break;
+      if (e[0] === 0xE5) continue;                     // 已删除项
+      if (!nameValid(e.subarray(0, 11))) break;
+      if (e[11] === 0x0F) continue;                    // 长名项
+      if (e[11] & 0x08) continue;                      // 卷标：簇号恒为 0，不算数
+      const st = e[26] | (e[27] << 8);
+      const sz = (e[28] | (e[29] << 8) | (e[30] << 16) | (e[31] << 24)) >>> 0;
+      if (st < 2 || st >= L.nclus + 2) break;
+      if (e[11] & 0x10) { good++; continue; }          // 子目录
+      if (sz === 0) { good++; continue; }
+      const endOff = L.dataOff + (st - 2) * L.cs + sz;
+      if (endOff > this.size + L.cs) break;            // 明显越界 -> 参数不对
+      good++;
+    }
+    // 真正的分区引导扇区里，BPB 的"隐藏扇区数"应当正好等于它所在的物理扇区号
+    if (good > 0 && L.hidden === L.volSector) good += 100;
+    return good;
+  };
+
+  function parseBPBAt(buf, o) {
+    if (buf.length < o + 0x40) return null;
+    const dv = new DataView(buf.buffer, buf.byteOffset, buf.length);
+    const bps = dv.getUint16(o + 0x0B, true);
+    if (bps !== 256 && bps !== 512 && bps !== 1024 && bps !== 2048 && bps !== 4096) return null;
+    const spc = buf[o + 0x0D];
+    if (spc !== 1 && spc !== 2 && spc !== 4 && spc !== 8 && spc !== 16 && spc !== 32 && spc !== 64 && spc !== 128) return null;
+    const rsv = dv.getUint16(o + 0x0E, true);
+    const nfat = buf[o + 0x10];
+    const rootent = dv.getUint16(o + 0x11, true);
+    const ts16 = dv.getUint16(o + 0x13, true);
+    const media = buf[o + 0x15];
+    const spf = dv.getUint16(o + 0x16, true);
+    const hidden = dv.getUint32(o + 0x1C, true);
+    const ts32 = dv.getUint32(o + 0x20, true);
+    if (nfat !== 1 && nfat !== 2) return null;
+    if (spf === 0 || rootent === 0 || rsv === 0) return null;
+    if (!MEDIA_OK.has(media)) return null;
+    const cs = bps * spc;
+    if (cs > 65536) return null;
+    // 总扇区数：ts16 与 ts32 都可能是有效值。不少游戏盘的引导扇区被厂商改写过，
+    // EBPB 区域（0x20 起，本该放 ts32）存了别的数据，所以两个值都要试，由打分决定。
+    const tots = [];
+    if (ts16) tots.push(ts16);
+    if (ts32 && ts32 !== ts16) tots.push(ts32);
+    if (!tots.length) return null;
+    return { bps, spc, rsv, nfat, rootent, media, spf, ts16, ts32, hidden, cs, tots };
+  }
+
+  function layout(base, volStart, physSec, bpb, fileSize, tot) {
+    const fatOff = volStart + bpb.rsv * bpb.bps;
+    const rootOff = fatOff + bpb.nfat * bpb.spf * bpb.bps;
+    const rootBytes = bpb.rootent * 32;
+    const dataOff = rootOff + rootBytes;
+    if (dataOff >= fileSize) return null;
+    const used = bpb.rsv + bpb.nfat * bpb.spf + Math.ceil(rootBytes / bpb.bps);
+    const nclus = Math.floor((tot - used) / bpb.spc);
+    if (nclus < 2 || nclus > 200000) return null;
+    if (nclus >= 65525) return null;                  // FAT32 暂不支持
+    const bits = nclus < 4085 ? 12 : 16;
+    const bytesPerFat = bpb.spf * bpb.bps;
+    if (bits === 12 && bytesPerFat < Math.ceil((nclus + 2) * 1.5)) return null;
+    if (bits === 16 && bytesPerFat < (nclus + 2) * 2) return null;
+    return { volStart, physSec, fatOff, rootOff, rootBytes, dataOff, nclus, bits,
+             bps: bpb.bps, spc: bpb.spc, cs: bpb.cs, rsv: bpb.rsv, nfat: bpb.nfat,
+             rootent: bpb.rootent, media: bpb.media, spf: bpb.spf, tot,
+             hidden: bpb.hidden, eof: bits === 12 ? 0xFF8 : 0xFFF8,
+             // 分区起点换算成"第几个物理扇区"，用来和 BPB 的隐藏扇区数对照
+             volSector: (volStart - base) / physSec };
+  }
+
+  HdiImage.prototype.fatGet = function (n) {
+    const f = this.fat, b = this.vol.bits;
+    if (b === 12) {
+      const p = (n * 3) >> 1;
+      return (n & 1) ? ((f[p] >> 4) | (f[p + 1] << 4)) : (f[p] | ((f[p + 1] & 0x0F) << 8));
+    }
+    return f[n * 2] | (f[n * 2 + 1] << 8);
+  };
+
+  /* 读取一个簇链上的数据；size=0 表示读到链尾（用于目录） */
+  HdiImage.prototype.readChain = async function (start, size) {
+    const V = this.vol;
+    const want = size > 0 ? size : Infinity;
+    const parts = [];
+    let got = 0, c = start, guard = 0;
+    while (c >= 2 && c < V.eof && got < want && guard++ < 200000) {
+      const off = V.dataOff + (c - 2) * V.cs;
+      const need = Math.min(V.cs, want - got);
+      const chunk = await this.rd.read(off, need);
+      if (chunk.length === 0) break;
+      parts.push(chunk); got += chunk.length;
+      c = this.fatGet(c);
+    }
+    if (parts.length === 1) return parts[0];
+    const out = new Uint8Array(got);
+    let p = 0;
+    for (const q of parts) { out.set(q, p); p += q.length; }
+    return out;
+  };
+
+  /* 列出目录。cluster=0 表示根目录 */
+  HdiImage.prototype.listDir = async function (cluster) {
+    let buf;
+    if (!cluster) {
+      buf = await this.rd.read(this.vol.rootOff, this.vol.rootBytes);
+    } else {
+      buf = await this.readChain(cluster, 0);
+    }
+    const out = [];
+    for (let i = 0; i + 32 <= buf.length; i += 32) {
+      const e = buf.subarray(i, i + 32);
+      if (e[0] === 0x00) break;
+      if (e[0] === 0xE5) continue;
+      if (e[11] === 0x0F) continue;                 // LFN
+      const attr = e[11];
+      const nm = entryName(e);
+      if (nm === '.' || nm === '..') continue;
+      out.push({
+        name: nm,
+        index: i / 32,          // 目录里的槽位号，删除时要用到
+        attr,
+        dir: !!(attr & 0x10),
+        volume: !!(attr & 0x08),
+        cluster: e[26] | (e[27] << 8),
+        size: (e[28] | (e[29] << 8) | (e[30] << 16) | (e[31] << 24)) >>> 0,
+      });
+    }
+    return out;
+  };
+
+  HdiImage.prototype.readEntry = async function (ent) {
+    if (ent.dir) return this.readChain(ent.cluster, 0);
+    return this.readChain(ent.cluster, ent.size);
+  };
+
+  /* 递归收集全部文件（保持目录结构） */
+  HdiImage.prototype.walk = async function (cluster, prefix, out) {
+    out = out || [];
+    const list = await this.listDir(cluster);
+    for (const e of list) {
+      if (e.volume || e.name === '.' || e.name === '..') continue;
+      const path = prefix ? prefix + '/' + e.name : e.name;
+      if (e.dir) await this.walk(e.cluster, path, out);
+      else out.push({ path, entry: e });
+    }
+    return out;
+  };
+
+  /* ================= 写入支持 ================= */
+
+  /* FAT 表项写入：只改内存缓存，flushFAT() 时再统一写回所有副本 */
+  HdiImage.prototype.fatSet = function (n, val) {
+    const f = this.fat, V = this.vol;
+    if (V.bits === 12) {
+      const p = (n * 3) >> 1;
+      if (n & 1) { f[p] = (f[p] & 0x0F) | ((val & 0x0F) << 4); f[p + 1] = (val >> 4) & 0xFF; }
+      else { f[p] = val & 0xFF; f[p + 1] = (f[p + 1] & 0xF0) | ((val >> 8) & 0x0F); }
+    } else {
+      f[n * 2] = val & 0xFF; f[n * 2 + 1] = (val >> 8) & 0xFF;
+    }
+  };
+  HdiImage.prototype.flushFAT = async function () {
+    const V = this.vol;
+    for (let i = 0; i < V.nfat; i++) {
+      await this.rd.write(V.fatOff + i * V.spf * V.bps, this.fat);
+    }
+    this.fatDirty = false;
+  };
+
+  HdiImage.prototype.chainOf = function (start) {
+    const V = this.vol, out = [];
+    let c = start, guard = 0;
+    while (c >= 2 && c < V.eof && guard++ < 200000) { out.push(c); c = this.fatGet(c); }
+    return out;
+  };
+
+  /* 分配 n 个簇并串成一条链，返回首簇；空间不足返回 0 */
+  HdiImage.prototype.allocClusters = function (n) {
+    const V = this.vol, maxC = V.nclus + 2, found = [];
+    for (let c = 2; c < maxC && found.length < n; c++) {
+      if (this.fatGet(c) === 0) found.push(c);
+    }
+    if (found.length < n) return 0;
+    const eofMark = V.bits === 12 ? 0xFFF : 0xFFFF;
+    for (let i = 0; i < n; i++) this.fatSet(found[i], i === n - 1 ? eofMark : found[i + 1]);
+    this.fatDirty = true;
+    return found[0];
+  };
+
+  HdiImage.prototype.freeChain = function (start) {
+    const V = this.vol;
+    let c = start, guard = 0;
+    while (c >= 2 && c < V.eof && guard++ < 200000) {
+      const nxt = this.fatGet(c);
+      this.fatSet(c, 0);
+      c = nxt;
+    }
+    this.fatDirty = true;
+  };
+
+  /* 把 (目录簇, 槽位号) 换算成文件内的绝对字节偏移 */
+  HdiImage.prototype.dirSlotOffset = function (dirCluster, index) {
+    const V = this.vol, off = index * 32;
+    if (!dirCluster) return V.rootOff + off;
+    const ci = Math.floor(off / V.cs), inb = off - ci * V.cs;
+    const chain = this.chainOf(dirCluster);
+    if (ci >= chain.length) throw new Error('目录槽位超出该目录的范围');
+    return V.dataOff + (chain[ci] - 2) * V.cs + inb;
+  };
+
+  /* 找一个空目录槽（0x00 结尾 或 0xE5 已删除）；根目录容量固定，子目录按簇链长度算 */
+  HdiImage.prototype.findFreeSlot = async function (dirCluster) {
+    let buf, max;
+    if (!dirCluster) {
+      buf = await this.rd.read(this.vol.rootOff, this.vol.rootBytes);
+      max = this.vol.rootent;
+    } else {
+      buf = await this.readChain(dirCluster, 0);
+      max = Math.floor(buf.length / 32);
+    }
+    for (let i = 0; i < max; i++) {
+      if (buf[i * 32] === 0x00 || buf[i * 32] === 0xE5) return i;
+    }
+    return -1;
+  };
+
+  const isSJISLead = (b) => (b >= 0x81 && b <= 0x9F) || (b >= 0xE0 && b <= 0xFC);
+
+  /* Unicode 文件名 -> 11 字节的 8.3 目录项名（Shift-JIS） */
+  function toShortName(name) {
+    let s = encodeSJIS(String(name).replace(/[\\/]/g, '_'));
+    let dot = -1;
+    for (let i = s.length - 1; i >= 0; i--) if (s[i] === 0x2E) { dot = i; break; }
+    let base = dot < 0 ? s : s.subarray(0, dot);
+    let ext = dot < 0 ? new Uint8Array(0) : s.subarray(dot + 1);
+    const clean = (u) => {
+      const o = [];
+      for (const b of u) if (b > 0x20 && !BAD_NAME.has(b)) o.push(b);
+      return Uint8Array.from(o);
+    };
+    base = clean(base); ext = clean(ext);
+    const cut = (u, max) => {
+      if (u.length <= max) return u;
+      let n = max;
+      if (n > 0 && isSJISLead(u[n - 1])) n--;    // 别把双字节字符切一半
+      return u.subarray(0, n);
+    };
+    base = cut(base, 8); ext = cut(ext, 3);
+    const upper = (u) => {                        // 只把半角字母转大写，别碰日文
+      const o = u.slice();
+      for (let i = 0; i < o.length; i++) {
+        if (isSJISLead(o[i]) && i + 1 < o.length) { i++; continue; }
+        if (o[i] >= 0x61 && o[i] <= 0x7A) o[i] -= 0x20;
+      }
+      return o;
+    };
+    base = upper(base); ext = upper(ext);
+    if (!base.length) return null;
+    const out = new Uint8Array(11).fill(0x20);
+    out.set(base, 0); out.set(ext, 8);
+    return out;
+  }
+
+  function dosNow() {
+    const d = new Date();
+    return {
+      time: (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1),
+      date: ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate(),
+    };
+  }
+
+  /* 往目录里写一个文件；返回实际使用的 8.3 名 */
+  HdiImage.prototype.createFile = async function (dirCluster, name, data, attr) {
+    const V = this.vol;
+    const short = toShortName(name);
+    if (!short) throw new Error('文件名无法用 8.3 表示：' + name);
+
+    const list = await this.listDir(dirCluster);
+    if (list.some(e => e.name.toUpperCase() === decodeSJIS(short).trim().toUpperCase())) {
+      throw new Error('已经存在同名文件：' + name);
+    }
+
+    const nClus = data.length ? Math.ceil(data.length / V.cs) : 0;
+    let start = 0;
+    if (nClus > 0) {
+      start = this.allocClusters(nClus);
+      if (!start) throw new Error('镜像剩余空间不足（需要 ' + (nClus * V.cs / 1024) + ' KB）');
+      const chain = this.chainOf(start);
+      for (let i = 0; i < nClus; i++) {
+        const buf = new Uint8Array(V.cs);
+        const o = i * V.cs;
+        buf.set(data.subarray(o, Math.min(o + V.cs, data.length)));
+        await this.rd.write(V.dataOff + (chain[i] - 2) * V.cs, buf);
+      }
+    }
+
+    const slot = await this.findFreeSlot(dirCluster);
+    if (slot < 0) throw new Error('目录已满（' + (dirCluster ? '子目录' : '根目录') + '放不下更多文件了）');
+
+    const e = new Uint8Array(32);
+    e.set(short, 0);
+    e[11] = attr === undefined ? 0x20 : attr;
+    const st = dosNow();
+    e[22] = st.time & 0xFF; e[23] = st.time >> 8;
+    e[24] = st.date & 0xFF; e[25] = st.date >> 8;
+    e[26] = start & 0xFF; e[27] = start >> 8;
+    const sz = data.length >>> 0;
+    e[28] = sz & 0xFF; e[29] = (sz >> 8) & 0xFF; e[30] = (sz >> 16) & 0xFF; e[31] = (sz >>> 24) & 0xFF;
+    await this.rd.write(this.dirSlotOffset(dirCluster, slot), e);
+    this.modified = true;
+    const b = decodeSJIS(short.subarray(0, 8)).replace(/\s+$/, '');
+    const x = decodeSJIS(short.subarray(8, 11)).replace(/\s+$/, '');
+    return x ? b + '.' + x : b;
+  };
+
+  /* 删除目录里的第 index 项：释放簇链 + 打上 0xE5 删除标记 */
+  HdiImage.prototype.deleteAt = async function (dirCluster, index) {
+    const off = this.dirSlotOffset(dirCluster, index);
+    const e = await this.rd.read(off, 32);
+    if (e.length < 32 || e[0] === 0x00 || e[0] === 0xE5) throw new Error('这个位置没有文件');
+    const attr = e[11];
+    const start = e[26] | (e[27] << 8);
+    if (!(attr & 0x08) && start >= 2) this.freeChain(start);     // 卷标没有簇
+    const del = new Uint8Array([0xE5]);
+    await this.rd.write(off, del);
+    this.modified = true;
+  };
+
+  /* 导出：把原文件与脏块按顺序拼成可下载的片段 */
+  HdiImage.prototype.exportParts = async function () {
+    if (this.fatDirty) await this.flushFAT();
+    const parts = [];
+    const blocks = [...this.rd.dirty.keys()].sort((a, b) => a - b);
+    let cur = 0;
+    for (const bi of blocks) {
+      const start = bi * BLK;
+      if (start > cur) parts.push(this.file.slice(cur, start));
+      let blk = this.rd.dirty.get(bi);
+      const end = Math.min(start + BLK, this.size);
+      if (end < start + BLK) blk = blk.subarray(0, end - start);
+      parts.push(blk);
+      cur = end;
+    }
+    if (cur < this.size) parts.push(this.file.slice(cur, this.size));
+    return parts;
+  };
+
+  HdiImage.prototype.usedBytes = function () {
+    let used = 0;
+    for (let c = 2; c < this.vol.nclus + 2; c++) if (this.fatGet(c) !== 0) used++;
+    return { used: used * this.vol.cs, total: this.vol.nclus * this.vol.cs };
+  };
+
+  /* ---------------- ZIP（仅存储，不压缩） ---------------- */
+  let CRC_T = null;
+  function crc32(u8) {
+    if (!CRC_T) {
+      CRC_T = new Uint32Array(256);
+      for (let i = 0; i < 256; i++) {
+        let c = i;
+        for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        CRC_T[i] = c >>> 0;
+      }
+    }
+    let c = 0xFFFFFFFF;
+    for (let i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  function dosStamp(d) {
+    d = d || new Date();
+    const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+    const date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+    return { time, date };
+  }
+
+  function zipBuild(files) {   // files: [{name, data:Uint8Array}]
+    const enc = new TextEncoder();
+    const st = dosStamp();
+    const locals = [], central = [];
+    let offset = 0;
+    for (const f of files) {
+      const nm = enc.encode(f.name);
+      const crc = crc32(f.data);
+      const lh = new Uint8Array(30 + nm.length);
+      const v = new DataView(lh.buffer);
+      v.setUint32(0, 0x04034b50, true);
+      v.setUint16(4, 20, true); v.setUint16(6, 0x0800, true); v.setUint16(8, 0, true);
+      v.setUint16(10, st.time, true); v.setUint16(12, st.date, true);
+      v.setUint32(14, crc, true);
+      v.setUint32(18, f.data.length, true); v.setUint32(22, f.data.length, true);
+      v.setUint16(26, nm.length, true);
+      lh.set(nm, 30);
+      locals.push(lh, f.data);
+
+      const ch = new Uint8Array(46 + nm.length);
+      const c = new DataView(ch.buffer);
+      c.setUint32(0, 0x02014b50, true);
+      c.setUint16(4, 20, true); c.setUint16(6, 20, true);
+      c.setUint16(8, 0x0800, true); c.setUint16(10, 0, true);
+      c.setUint16(12, st.time, true); c.setUint16(14, st.date, true);
+      c.setUint32(16, crc, true);
+      c.setUint32(20, f.data.length, true); c.setUint32(24, f.data.length, true);
+      c.setUint16(28, nm.length, true);
+      c.setUint32(42, offset, true);
+      ch.set(nm, 46);
+      central.push(ch);
+
+      offset += lh.length + f.data.length;
+    }
+    let cdSize = 0;
+    for (const c of central) cdSize += c.length;
+    const eocd = new Uint8Array(22);
+    const e = new DataView(eocd.buffer);
+    e.setUint32(0, 0x06054b50, true);
+    e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
+    e.setUint32(12, cdSize, true); e.setUint32(16, offset, true);
+    return [...locals, ...central, eocd];
+  }
+
+  root.PC98HDI = { HdiImage, decodeSJIS, encodeSJIS, toShortName, zipBuild, crc32 };
+})(typeof window !== 'undefined' ? window : globalThis);
+// ==CORE_END==
+</script>
+<script>
+/* ===== js/sksdat.js (内联) ===== */
+// ==CORE_START==
+/* ------------------------------------------------------------------
+   ELF sksdat 归档解包（SILK?.DAT）
+   逆向自 MLD 2.19 的 sksdat 解码器（MLD.EXE 文件偏移 0x52055，
+   由 0x51EB0 的 dat 自动选择器经签名索引 18 = "With mdataX.exe ver " 分派进入）
+
+   结构：
+     0x000  "With mdataX.exe ver "  20 字节签名
+     0x1F4  u32  索引表字节数 n
+     0x1F8  索引表（n 字节，相邻字节差分 XOR 加密）
+     数据区 base = 0x1F8 + n
+
+   索引表解密（从末尾向前，读的是尚未处理的原始字节）：
+       for i in n-1 .. 1:  out[i] ^= raw[i-1]
+       out[0] ^= seed      # seed = 文件头第 [盘号] 字节（SILK0→'W'=0x57 …）
+   目录项（24 字节）：name[16] + offset(u32) + size(u32)
+   ------------------------------------------------------------------ */
+(function (root) {
+  'use strict';
+
+  const HDR_SIG = 'With mdataX.exe ver ';
+  const HDR_PREFIX_MAX = 8;  // 签名允许出现在前 8 字节内（容忍 "**** " 之类的装饰前缀）
+  const IDX_OFF = 0x1F4;    // u32：索引表字节数
+  const IDX_BASE = 0x1F8;   // 索引表起点
+  const ENT = 24;           // 目录项：name[16] + offset(u32) + size(u32)
+
+  function undoXor(raw, seed) {
+    const out = new Uint8Array(raw);
+    for (let i = out.length - 1; i > 0; i--) out[i] ^= raw[i - 1];
+    out[0] ^= seed;
+    return out;
+  }
+
+  function readTable(data, tlen, seed) {
+    const base = IDX_BASE + tlen;
+    const tbl = undoXor(data.subarray(IDX_BASE, IDX_BASE + tlen), seed);
+    const ents = [];
+    for (let k = 0; k < Math.floor(tlen / ENT); k++) {
+      const e = tbl.subarray(k * ENT, k * ENT + ENT);
+      let name = '';
+      for (let j = 0; j < 16; j++) { if (e[j] === 0) break; name += String.fromCharCode(e[j]); }
+      const off = (e[16] | (e[17] << 8) | (e[18] << 16) | (e[19] << 24)) >>> 0;
+      const size = (e[20] | (e[21] << 8) | (e[22] << 16) | (e[23] << 24)) >>> 0;
+      ents.push({
+        name, off, size,
+        // 数据范围必须落在文件内，否则是解错的种子留下的垃圾项
+        valid: !!name && base + off + size <= data.length
+      });
+    }
+    return ents;
+  }
+
+  /* 评分：名字越像 8.3 文件名、数据范围越合法，分越高。
+     注意 seed 只影响索引表首字节（即首个文件名的第一个字符），
+     所以评分必须把"名字整体质量"和"范围合法性"都算进去，才能挑出正确种子。 */
+  function scoreEnts(ents, base, fileLen) {
+    let s = 0;
+    for (const e of ents) {
+      if (!e.name) continue;
+      if (/^[A-Za-z][A-Za-z0-9_.\-]{0,15}$/.test(e.name)) s += 10;
+      else if (/^[\x20-\x7E]+$/.test(e.name)) s += 3;
+      if (base + e.off + e.size <= fileLen) s += 2;
+    }
+    return s;
+  }
+
+  function diskFromName(filename) {
+    const m = /SILK(\d)/i.exec(filename || '');
+    return m ? parseInt(m[1], 10) : null;
+  }
+
+  function isSksdat(data) {
+    // 只需能读到签名(20B) + 索引表长度 u32(@0x1F4)，即 ≥ IDX_OFF+4。
+    // 注意：handleIncoming 嗅探时只取文件前若干字节，若门槛定到 IDX_BASE+ENT(528)
+    // 会漏掉短头；真正的完整校验交给 parseDAT。
+    if (!data || data.length < IDX_OFF + 4) return false;
+    // 签名通常就在偏移 0，但部分发行版会加装饰前缀，例如
+    //   "**** With mdataX.exe ver 1.02 Data disk. tomato. ****"
+    // （对应 SILK0.DAT 的另一个版本）。这种文件索引表位置不变，
+    // 种子仍然是"文件头第 [盘号] 字节"，所以只需在前几字节内搜到签名即可。
+    const span = Math.min(HDR_PREFIX_MAX, data.length - HDR_SIG.length + 1);
+    for (let off = 0; off < span; off++) {
+      let hit = true;
+      for (let i = 0; i < HDR_SIG.length; i++) {
+        if (data[off + i] !== HDR_SIG.charCodeAt(i)) { hit = false; break; }
+      }
+      if (hit) return true;
+    }
+    return false;
+  }
+
+  /* 探测全部 256 个种子，返回按分数降序的候选列表 */
+  function probeSeeds(data, tlen) {
+    const base = IDX_BASE + tlen;
+    const raw = data.subarray(IDX_BASE, IDX_BASE + tlen);
+    const cand = [];
+    for (let seed = 0; seed < 256; seed++) {
+      cand.push({ seed, score: scoreEnts(readTable(data, tlen, seed), base, data.length) });
+    }
+    cand.sort((a, b) => b.score - a.score || a.seed - b.seed);
+    return cand;
+  }
+
+  /* 主解析：返回 info（注意 seed 字段一定存在，UI 层直接读取） */
+  function parseDAT(data, filename) {
+    if (!isSksdat(data)) {
+      return { error: '不是 sksdat 归档（缺少 "With mdataX.exe ver " 签名头）' };
+    }
+    const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
+    const tlen = dv.getUint32(IDX_OFF, true);
+    if (tlen < ENT || IDX_BASE + tlen > data.length) {
+      return { error: '索引表长度异常: ' + tlen + '（文件 ' + data.length + ' 字节）' };
+    }
+    const base = IDX_BASE + tlen;
+
+    // 先用文件名推断盘号（SILK0→头第 0 字节 …），再用全表评分兜底。
+    // 文件名被改成 SILK0.DAT.txt 之类的情况也能正确识别盘号。
+    const disk = diskFromName(filename);
+    const guessSeed = disk !== null ? data[disk] : null;
+    const candidates = probeSeeds(data, tlen);
+    let seed = candidates[0].seed, seedSrc = '自动探测';
+    if (guessSeed !== null) {
+      const g = candidates.find(c => c.seed === guessSeed);
+      if (g && g.score >= candidates[0].score) {
+        seed = guessSeed;
+        seedSrc = '文件名 SILK' + disk;
+      }
+    }
+    const ents = readTable(data, tlen, seed);
+    return {
+      data, base, tlen, ents, seed, seedSrc, disk,
+      candidates: candidates.slice(0, 12),
+      ok: ents.filter(e => e.valid).length,
+      bad: ents.filter(e => e.name && !e.valid).length
+    };
+  }
+
+  /* 用指定种子重解析（切换种子时复用，不重新探测） */
+  function reparse(info, seed) {
+    return Object.assign({}, info, {
+      seed, seedSrc: '手动指定', ents: readTable(info.data, info.tlen, seed)
+    });
+  }
+
+  function getEntData(info, ent) {
+    const a = info.base + ent.off;
+    return info.data.subarray(a, Math.min(a + ent.size, info.data.length));
+  }
+
+  root.SKSDAT = {
+    HDR_SIG, IDX_OFF, IDX_BASE, ENT,
+    undoXor, readTable, scoreEnts, probeSeeds,
+    parseDAT, reparse, getEntData, isSksdat, diskFromName
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+// ==CORE_END==
+</script>
+<script>
+/* ===== js/gp4.js (内联) ===== */
+// ==CORE_START==
+/* ------------------------------------------------------------------
+   GP4 图像解码（Silky's 愛姉妹 / ELF，PC-98 16 色）
+   移植自 libai5 的 gp4.c
+
+   格式：
+     u16 x, y, w-1, h-1            ← 大端
+     16 × u16 调色板               ← g<<12 | r<<7 | b<<2（顶 nibble 有效）
+     位流（偏移 40 起，MSB-first）  ← 4 像素宽竖条 + MTF + RLE
+
+   解码以 4 像素宽的竖条为单位逐条进行：
+     - 标志位 0：literal，MTF 表还原 4 个像素
+     - 标志位 1：copy，从已解码区域复制一段（hori/vert 偏移 + length）
+   ------------------------------------------------------------------ */
+(function (root) {
+  'use strict';
+
+  function bitReader(data, start) {
+    let bi = start, bit = 7;
+    return {
+      read() {
+        if (bi >= data.length) return 0;
+        const b = (data[bi] >> bit) & 1;
+        if (bit === 0) { bit = 7; bi++; } else { bit--; }
+        return b;
+      },
+      readn(k) { let v = 0; for (let i = 0; i < k; i++) v = (v << 1) | this.read(); return v; }
+    };
+  }
+
+  function decodeGP4(data) {
+    if (data.length < 40) return null;
+    const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
+    const x = dv.getUint16(0, false);
+    const y = dv.getUint16(2, false);
+    const w = dv.getUint16(4, false) + 1;
+    const h = dv.getUint16(6, false) + 1;
+    if (!(w >= 8 && w <= 640 && h >= 8 && h <= 480)) return null;
+
+    const palette = [];
+    for (let i = 0; i < 16; i++) {
+      const c = dv.getUint16(8 + i * 2, false);
+      let gg = (c >> 12) & 0xf, rr = (c >> 7) & 0xf, bb = (c >> 2) & 0xf;
+      rr |= rr << 4; gg |= gg << 4; bb |= bb << 4;   // 4bit -> 8bit
+      palette.push([rr, gg, bb]);
+    }
+
+    // MTF 表：17 行（16 行是各"上一像素颜色"的上下文 + 1 行初始化）
+    const table = Array.from({ length: 17 }, (_, i) =>
+      Array.from({ length: 16 }, (_, j) => (i + j) & 0xf));
+
+    const bits = bitReader(data, 40);
+    const pixels = new Uint8Array(w * h);
+    const getpx = (px, py) =>
+      (px >= 0 && px < w && py >= 0 && py < h) ? pixels[py * w + px] : 0;
+    const setpx = (px, py, c) => {
+      if (px >= 0 && px < w && py >= 0 && py < h) pixels[py * w + px] = c;
+    };
+
+    let dst_x = 0;
+    for (let cx = 0; cx < Math.floor(w / 4); cx++) {
+      let dst_y = 0;
+      let table_index = 16;
+      while (dst_y < h) {
+        if (bits.read() === 0) {
+          // literal：4 个像素，MTF 还原
+          for (let xx = 0; xx < 4; xx++) {
+            let color = table[table_index][0];
+            let ci = 0;
+            while (bits.read() === 1) {
+              ci++;
+              const t = table[table_index][0];
+              table[table_index][0] = table[table_index][ci];
+              table[table_index][ci] = t;
+              color = table[table_index][0];
+            }
+            table_index = color;
+            setpx(dst_x + xx, dst_y, color);
+          }
+          dst_y += 1;
+        } else {
+          // copy：从已解码位置复制
+          let hori, vert;
+          if (bits.read() === 0) {
+            hori = 1; vert = bits.readn(4) - 8;
+          } else if (bits.read() === 0) {
+            hori = 0; vert = bits.readn(3) - 8;
+            if (vert <= -7) { if (vert === -7) vert = 0; vert -= 8; }
+          } else {
+            hori = 2;
+            while (bits.read() === 1) hori++;
+            vert = bits.readn(4) - 8;
+          }
+          const replica_x = dst_x - hori * 4;
+          const replica_y = dst_y + vert;
+
+          let length;
+          if (bits.read() === 0) length = bits.read() + 2;
+          else if (bits.read() === 0) length = bits.readn(2) + 4;
+          else if (bits.read() === 0) length = bits.readn(3) + 8;
+          else {
+            length = bits.readn(6) + 16;
+            if (length >= 79) length = bits.readn(10) + 79;
+          }
+
+          for (let yy = 0; yy < length; yy++) {
+            for (let xx = 0; xx < 4; xx++) {
+              setpx(dst_x + xx, dst_y + yy, getpx(replica_x + xx, replica_y + yy));
+            }
+          }
+          dst_y += length;
+        }
+      }
+      dst_x += 4;
+    }
+    return { w, h, x, y, palette, pixels };
+  }
+
+  /* 只看头部判断像不像 GP4（不解码，用于格式嗅探） */
+  function looksGP4(d) {
+    if (!d || d.length < 40) return false;
+    const dv = new DataView(d.buffer, d.byteOffset, d.byteLength);
+    const w = dv.getUint16(4, false) + 1, h = dv.getUint16(6, false) + 1;
+    if (!(w >= 8 && w <= 640 && h >= 8 && h <= 480)) return false;
+    if (w % 4) return false;                       // 4 像素宽竖条，宽度必须整除 4
+    // 调色板：真实文件低 2 位并不保证为 0（实测 69/69 个 GP4 都带低位，
+    // 例如 0x3415），所以不能按"低 2 位必须为 0"来判定。改为只要求色值不是全同。
+    let first = dv.getUint16(8, false), distinct = false;
+    for (let i = 1; i < 16; i++) {
+      if (dv.getUint16(8 + i * 2, false) !== first) { distinct = true; break; }
+    }
+    if (!distinct) return false;
+    let nz = 0;
+    for (let i = 40; i < Math.min(d.length, 120); i++) if (d[i]) nz++;
+    return nz > 8;                                  // 位流区不能全是 0
+  }
+
+  /* 转成 RGBA，供 Canvas 的 ImageData 使用 */
+  function toRGBA(img) {
+    const out = new Uint8ClampedArray(img.w * img.h * 4);
+    for (let i = 0; i < img.pixels.length; i++) {
+      const c = img.palette[img.pixels[i]] || [0, 0, 0];
+      out[i * 4] = c[0]; out[i * 4 + 1] = c[1]; out[i * 4 + 2] = c[2]; out[i * 4 + 3] = 255;
+    }
+    return out;
+  }
+
+  /* ---- MAG 编码（MAKI02 v2，全 literal 写法）----
+     输出的 MAG 任意标准阅读器都能打开，方便丢进其它 PC-98 工具链。 */
+  function encodeMAG(img) {
+    let w = img.w, px = img.pixels;
+    const h = img.h;
+    if (w % 2) {   // MAG 按 2 像素打包，宽度必须是偶数
+      const w2 = w + 1, px2 = new Uint8Array(w2 * h);
+      for (let yy = 0; yy < h; yy++) px2.set(px.subarray(yy * w, yy * w + w), yy * w2);
+      w = w2; px = px2;
+    }
+    const left = 0, top = 0, right = w - 1, bottom = h - 1;
+    const bytewidth = ((((right >> 1) + 1) + 3) & 0xFFFC);
+    const sizeYP = h;
+    const outbuf = new Uint8Array(bytewidth * sizeYP);
+    for (let yy = 0; yy < sizeYP; yy++) {
+      for (let xx = 0; xx < w; xx += 2) {
+        const p0 = px[yy * w + xx];
+        const p1 = xx + 1 < w ? px[yy * w + xx + 1] : 0;
+        outbuf[yy * bytewidth + (xx >> 1)] = (p1 << 4) | p0;
+      }
+    }
+    const actsize = bytewidth >> 2;
+    const flagAbytes = (actsize * sizeYP + 7) >> 3;
+    const comment = 'GP4->MAG by Badi\x1a';
+    const header_start = 12 + comment.length;
+    const flagAofs = header_start + 31 + 48;
+    const flagBofs = flagAofs + flagAbytes;
+    const colorOfs = flagBofs + 1;
+    const out = new Uint8Array(colorOfs + outbuf.length);
+    let p = 0;
+    const w8 = (s) => { for (let i = 0; i < s.length; i++) out[p++] = s.charCodeAt(i); };
+    const put16 = (v) => { out[p++] = v & 0xFF; out[p++] = (v >> 8) & 0xFF; };
+    const put32 = (v) => { put16(v & 0xFFFF); put16((v >>> 16) & 0xFFFF); };
+    w8('MAKI02  '); w8('98sa'); w8(comment);
+    out[p++] = 0; out[p++] = 0; out[p++] = 0;         // modelCode / modelFlags / screenMode
+    put16(left); put16(top); put16(right); put16(bottom);
+    put32(flagAofs - header_start);
+    put32(flagBofs - header_start);
+    put32(0); put32(colorOfs - header_start); put32(0);
+    for (const c of img.palette) { out[p++] = c[1] & 0xFF; out[p++] = c[0] & 0xFF; out[p++] = c[2] & 0xFF; }
+    out.fill(0, p, p + flagAbytes); p += flagAbytes;  // flagA 全 0 = 全部 literal
+    out[p++] = 0;                                     // flagB
+    out.set(outbuf, p);
+    return out;
+  }
+
+  root.GP4 = { decodeGP4, looksGP4, toRGBA, encodeMAG, bitReader };
+})(typeof window !== 'undefined' ? window : globalThis);
+// ==CORE_END==
+</script>
+<script>
+/* ===== js/mes.js (内联) ===== */
+// ==CORE_START==
+/* ------------------------------------------------------------------
+   MES 剧本解码（Silky's 愛姉妹 1994，ai5 引擎早期 DOS 变体）
+   逆向锚点（SIL.EXE，段偏移 = 文件偏移 − 0x200）：
+     11B4:0498  字典查表   sub al,0x80; add bx,[0xE31C]; add bx,2
+     11B4:04BA  SJIS 压缩  add ah,0x20（还原 lead byte）
+     11B4:0EC8  正文起点   si = dict_end + 缓冲基址
+
+   文件结构：
+     u16  dict_end                 ← 字典区结束偏移
+     SJIS dict[2 .. dict_end)      ← 全角字符字典，每项固定 2 字节
+     byte body[dict_end .. EOF)    ← 指令 + 文本混合流
+
+   正文解码规则（两种编码交替，无分隔标记）：
+     0x60–0x7F  SJIS 压缩双字节：lead = b + 0x20，trail = 下一字节
+     0x80–      字典索引：idx = b − 0x80，查表得 2 字节 SJIS（超界则原样输出）
+     0x03       下一字节是字符编码时进入文本模式
+     0x00       段落结束，退出文本模式
+   ------------------------------------------------------------------ */
+(function (root) {
+  'use strict';
+
+  let sjisDecoder = null;
+  try { sjisDecoder = new TextDecoder('shift_jis'); } catch (e) { }
+
+  function decodeSJIS(bytes) {
+    if (sjisDecoder) { try { return sjisDecoder.decode(bytes); } catch (e) { } }
+    let s = '';
+    for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return s;
+  }
+
+  function decodeMES(d) {
+    const empty = { text: '', n: 0, table: [], dictEnd: 0, ratio: 0, chars: 0 };
+    if (d.length < 2) return empty;
+    const dv = new DataView(d.buffer, d.byteOffset, d.byteLength);
+    const dictEnd = dv.getUint16(0, true);
+    const n = Math.max(0, Math.floor((dictEnd - 2) / 2));
+
+    const table = [];
+    for (let i = 0; i < n; i++) {
+      const b0 = d[2 + i * 2], b1 = d[3 + i * 2];
+      let ch = '?';
+      try { ch = decodeSJIS(new Uint8Array([b0, b1])); } catch (e) { }
+      table.push(ch);
+    }
+
+    const body = d.subarray(dictEnd);
+    const out = [];
+    let mode = 'cmd', i = 0, decoded = 0, total = 0;
+
+    while (i < body.length) {
+      const b = body[i];
+      if (mode === 'txt') {
+        total++;
+        if (b >= 0x60 && b < 0x80 && i + 1 < body.length) {
+          out.push(b + 0x20, body[i + 1]); i += 2; decoded++;
+        } else if (b >= 0x80) {
+          const idx = b - 0x80;
+          if (idx < n) { out.push(d[2 + idx * 2], d[3 + idx * 2]); decoded++; }
+          else if (i + 1 < body.length) { out.push(b, body[i + 1]); i += 1; }
+          i += 1;
+        } else if (b === 0x00) {
+          out.push(0x0A); i += 1; mode = 'cmd';       // 段落结束 -> 换行
+        } else {
+          mode = 'cmd';
+        }
+      } else {
+        if (b === 0x03) {
+          const nb = i + 1 < body.length ? body[i + 1] : 0;
+          if ((nb >= 0x60 && nb < 0x80) || nb >= 0x80) mode = 'txt';
+          i += 1;
+        } else {
+          i += 1;
+        }
+      }
+    }
+
+    let s = '';
+    try { s = decodeSJIS(new Uint8Array(out)); } catch (e) { }
+    return {
+      text: s.replace(/\n{2,}/g, '\n').replace(/^\n+/, ''),
+      n, table, dictEnd,
+      ratio: total ? decoded / total : 0,     // 可解码率，用来判断解码是否正确
+      chars: s.length
+    };
+  }
+
+  /* 只看头部判断像不像 MES（不解码，用于格式嗅探） */
+  function looksMES(d) {
+    if (!d || d.length < 4) return false;
+    const dv = new DataView(d.buffer, d.byteOffset, d.byteLength);
+    const de = dv.getUint16(0, true);
+    if (!(de >= 2 && de <= d.length && de % 2 === 0 && de <= 0x1000)) return false;
+    // 字典区应该是合法的双字节 SJIS 字符，不能是控制字符
+    let printable = 0;
+    for (let i = 2; i + 1 < de && i < 64; i += 2) {
+      const b0 = d[i];
+      if ((b0 >= 0x81 && b0 <= 0x9F) || (b0 >= 0xE0 && b0 <= 0xFC)) printable++;
+    }
+    const cnt = Math.max(1, Math.floor((Math.min(de, 64) - 2) / 2));
+    return printable / cnt > 0.6;
+  }
+
+  root.MES = { decodeMES, looksMES, decodeSJIS };
+})(typeof window !== 'undefined' ? window : globalThis);
+// ==CORE_END==
+</script>
+<script>
+/* ===== js/viewers.js (内联) ===== */
+/* ------------------------------------------------------------------
+   格式嗅探 + 预览渲染器（DOM 层）
+   把 HDI 里取出的字节流按内容路由到对应的预览器：
+     sksdat 归档 -> 条目列表（点条目继续下钻）
+     GP4 图像   -> Canvas 渲染 + 调色板 + PNG/MAG 导出
+     MES 剧本   -> 字典表 + 解码文本 + TXT 导出
+     其它       -> Shift-JIS 文本 / 十六进制
+   ------------------------------------------------------------------ */
+(function (root) {
+  'use strict';
+
+  const GP4 = root.GP4, MES = root.MES, SKSDAT = root.SKSDAT, HDI = root.PC98HDI;
+
+  function esc(s) {
+    return String(s).replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+  }
+  function human(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+    return (n / 1048576).toFixed(2) + ' MB';
+  }
+  function extOf(name) {
+    const i = String(name).lastIndexOf('.');
+    return i < 0 ? '' : String(name).slice(i + 1).toUpperCase();
+  }
+  function hex(n) { return '0x' + (n >>> 0).toString(16).toUpperCase(); }
+
+  function download(parts, name) {
+    const blob = new Blob(parts, { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 8000);
+  }
+
+  /* 已知的"不可解码"扩展名：命中就直接当二进制，跳过内容嗅探。
+     原因：.S4（场景/脚本表）这类结构的头 40 字节碰巧满足 GP4 的
+     宽高 + 调色板形态，光看内容会被误判成图片（实测 2/26 个 .S4 中招），
+     预览时渲染成一张花屏或报"头部像 GP4 但解码失败"。 */
+  const KNOWN_OTHER = new Set([
+    'S4', 'M', 'DISKNO', 'EXE', 'COM', 'BIN', 'OVL', 'DRV', 'SYS', 'NCG', 'GRP', 'BAT', 'TXT',
+  ]);
+
+  /* ---------------- 格式嗅探 ---------------- */
+  function sniff(data, filename) {
+    if (SKSDAT.isSksdat(data)) return { kind: 'sksdat', label: 'ELF sksdat 归档' };
+    const ext = extOf(filename);
+    // 扩展名明确时优先采信扩展名，只有扩展名不认识时才做内容嗅探
+    if (ext === 'GP4') return { kind: 'gp4', label: 'GP4 图像' };
+    if (ext === 'MES') return { kind: 'mes', label: 'MES 剧本' };
+    if (ext === 'MAG') {
+      return (data[0] === 0x4D && data[1] === 0x41)
+        ? { kind: 'mag', label: 'MAG 图像' }
+        : { kind: 'bin', label: '二进制' };
+    }
+    if (KNOWN_OTHER.has(ext)) return { kind: 'bin', label: '二进制' };
+    if (GP4.looksGP4(data)) return { kind: 'gp4', label: 'GP4 图像' };
+    if (MES.looksMES(data)) return { kind: 'mes', label: 'MES 剧本' };
+    return { kind: 'bin', label: '二进制' };
+  }
+
+  /* 扩展名 -> 文件类型说明（用于列表徽章与预览副标题） */
+  const KIND_NOTE = {
+    MES: '剧本 / 对话文本',
+    GP4: '16 色图像（ELF 私有压缩）',
+    M: '疑似 BGM / 音乐数据（暂不支持解码）',
+    S4: '疑似调色板 / 场景数据',
+    MAG: 'MAG 图像（MAKI02）',
+    DAT: '数据归档'
+  };
+
+  /* 列表渲染时按扩展名猜类型（不读文件内容，避免列表卡顿） */
+  function guessByName(name) {
+    const ext = extOf(name);
+    if (/^SILK\d/i.test(name)) return { tag: '归档', cls: 't-arc' };
+    if (ext === 'GP4') return { tag: 'CG', cls: 't-cg' };
+    if (ext === 'MES') return { tag: '剧本', cls: 't-mes' };
+    return null;
+  }
+
+  /* ---------------- 十六进制 ---------------- */
+  function hexDump(u8, max) {
+    max = Math.min(u8.length, max || 4096);
+    let s = '';
+    for (let i = 0; i < max; i += 16) {
+      const row = u8.subarray(i, Math.min(i + 16, max));
+      let h = '', a = '';
+      for (const b of row) {
+        h += b.toString(16).padStart(2, '0') + ' ';
+        a += (b >= 0x20 && b < 0x7f) ? String.fromCharCode(b) : '.';
+      }
+      s += i.toString(16).padStart(8, '0') + '  ' + h.padEnd(49) + '  ' + esc(a) + '\n';
+    }
+    if (u8.length > max) s += '… 共 ' + human(u8.length) + '，仅显示前 ' + max + ' 字节\n';
+    return s;
+  }
+
+  function looksText(u8) {
+    const head = u8.subarray(0, Math.min(u8.length, 4096));
+    let bin = 0;
+    for (let i = 0; i < head.length; i++) {
+      const c = head[i];
+      if (c === 0) { bin++; continue; }
+      if (c < 0x09 || (c > 0x0D && c < 0x20)) bin++;
+    }
+    return bin / Math.max(head.length, 1) < 0.05;
+  }
+
+  const RENDERERS = {};
+  const SEED_CACHE = new Map();   // 归档标识 -> 用户手动选定的 seed
+
+  /* ---------------- 二进制 / 文本 ---------------- */
+  RENDERERS.bin = {
+    html(u8, name, opts) {
+      const isTxt = looksText(u8);
+      const note = KIND_NOTE[extOf(name)] || '';
+      return '<div class="pv-head">' +
+        '<span class="pv-kind">二进制</span>' +
+        '<span class="pv-note">' + esc(note) + '</span>' +
+        '<span class="pv-size">' + human(u8.length) + '</span>' +
+        '</div>' +
+        (isTxt
+          ? '<pre class="out">' + esc(HDI.decodeSJIS(u8.subarray(0, Math.min(u8.length, 65536)))) + '</pre>'
+          : '<pre class="out">' + hexDump(u8) + '</pre>') +
+        '<div class="pv-acts"><button class="btn" data-act="dl">下载原文件</button></div>';
+    },
+    mount(host, u8, name) {
+      host.querySelector('[data-act="dl"]').onclick = () => download([u8], name);
+    }
+  };
+
+  /* ---------------- GP4 图像 ---------------- */
+  RENDERERS.gp4 = {
+    html(u8, name) {
+      const img = GP4.decodeGP4(u8);
+      if (!img) {
+        return '<div class="msg err">这个文件头部像 GP4，但解码失败（尺寸或位流异常）</div>' +
+          '<pre class="out">' + hexDump(u8) + '</pre>';
+      }
+      const pal = img.palette.map((c, i) =>
+        '<span title="#' + i.toString(16) + ' rgb(' + c.join(',') + ')" style="background:rgb(' + c.join(',') + ')"></span>'
+      ).join('');
+      return '<div class="pv-head">' +
+        '<span class="pv-kind">GP4 图像</span>' +
+        '<span class="pv-note">' + img.w + '×' + img.h + ' · 16 色</span>' +
+        '<span class="pv-size">' + human(u8.length) + '</span>' +
+        '</div>' +
+        '<div class="canvas-wrap"><canvas width="' + img.w + '" height="' + img.h + '"></canvas></div>' +
+        '<div class="pal">' + pal + '</div>' +
+        '<div class="pv-acts">' +
+        '<button class="btn pri" data-act="png">下载 PNG</button>' +
+        '<button class="btn" data-act="mag">转 MAG</button>' +
+        '<button class="btn" data-act="dl">下载原文件</button>' +
+        '</div>';
+    },
+    mount(host, u8, name) {
+      const img = GP4.decodeGP4(u8);
+      if (!img) return;
+      const canvas = host.querySelector('canvas');
+      const ctx = canvas.getContext('2d');
+      const id = ctx.createImageData(img.w, img.h);
+      id.data.set(GP4.toRGBA(img));
+      ctx.putImageData(id, 0, 0);
+      const base = name.replace(/\.GP4$/i, '');
+      host.querySelector('[data-act="png"]').onclick = () => {
+        canvas.toBlob(b => download([b], base + '.png'), 'image/png');
+      };
+      host.querySelector('[data-act="mag"]').onclick = () => {
+        try { download([GP4.encodeMAG(img)], base + '.MAG'); }
+        catch (e) { alert('MAG 编码失败：' + e.message); }
+      };
+      host.querySelector('[data-act="dl"]').onclick = () => download([u8], name);
+    }
+  };
+
+  /* ---------------- MES 剧本 ---------------- */
+  RENDERERS.mes = {
+    html(u8, name) {
+      const r = MES.decodeMES(u8);
+      const pct = (r.ratio * 100).toFixed(1);
+      const cls = r.ratio > 0.9 ? 'ok' : (r.ratio > 0.6 ? 'warn' : 'err');
+      const rows = r.table.map((ch, k) =>
+        '<tr><td>' + k + '</td><td>' + hex(0x80 + k) + '</td><td>' + esc(ch) + '</td></tr>').join('');
+      return '<div class="pv-head">' +
+        '<span class="pv-kind">MES 剧本</span>' +
+        '<span class="pv-note">字典 ' + r.n + ' 项 · 可解码率 <b class="r-' + cls + '">' + pct + '%</b></span>' +
+        '<span class="pv-size">' + human(u8.length) + '</span>' +
+        '</div>' +
+        (r.n ? '<details class="dict"><summary>字典表（' + r.n + ' 项）</summary>' +
+          '<table class="dict-t"><tr><th>#</th><th>编码</th><th>字符</th></tr>' + rows + '</table></details>' : '') +
+        '<pre class="out text">' + (r.text ? esc(r.text) : '（无文本内容）') + '</pre>' +
+        '<div class="pv-acts">' +
+        '<button class="btn pri" data-act="txt">下载解码文本</button>' +
+        '<button class="btn" data-act="dl">下载原文件</button>' +
+        '</div>';
+    },
+    mount(host, u8, name) {
+      const r = MES.decodeMES(u8);
+      host.querySelector('[data-act="txt"]').onclick = () => {
+        download([new Blob(['\uFEFF' + r.text], { type: 'text/plain;charset=utf-8' })],
+          name.replace(/\.MES$/i, '.txt'));
+      };
+      host.querySelector('[data-act="dl"]').onclick = () => download([u8], name);
+    }
+  };
+
+  /* ---------------- sksdat 归档 ---------------- */
+  RENDERERS.sksdat = {
+    html(u8, name, opts) {
+      const info = SKSDAT.parseDAT(u8, name);
+      if (info.error) {
+        return '<div class="msg err">' + esc(info.error) + '</div><pre class="out">' + hexDump(u8) + '</pre>';
+      }
+      const ents = info.ents.filter(e => e.name);
+      const kinds = {};
+      ents.forEach(e => { const x = extOf(e.name) || '?'; kinds[x] = (kinds[x] || 0) + 1; });
+      const kindStr = Object.entries(kinds).sort((a, b) => b[1] - a[1])
+        .map(([k, v]) => k + '×' + v).join(' · ');
+
+      const seedOpts = new Set(info.candidates.map(c => c.seed));
+      seedOpts.add(info.seed);
+
+      return '<div class="pv-head">' +
+        '<span class="pv-kind">ELF sksdat 归档</span>' +
+        '<span class="pv-note">' + ents.length + ' 个文件 · ' + esc(kindStr) + '</span>' +
+        '<span class="pv-size">' + human(u8.length) + '</span>' +
+        '</div>' +
+        '<div class="pv-diag">' +
+        '索引表 <b>' + info.tlen + '</b> B @' + hex(SKSDAT.IDX_BASE) +
+        ' · 数据区 @' + hex(info.base) +
+        ' · seed <b>' + hex(info.seed) + '</b>（' + esc(info.seedSrc) + '）' +
+        (info.bad ? ' · <b class="r-err">' + info.bad + ' 个条目越界</b>' : '') +
+        ' <label class="seedlab">seed ' +
+        '<select class="seedsel">' +
+        Array.from(seedOpts).sort((a, b) => a - b).map(s =>
+          '<option value="' + s + '"' + (s === info.seed ? ' selected' : '') + '>' + hex(s) + '</option>').join('') +
+        '</select></label>' +
+        '</div>' +
+        '<div class="pv-tools">' +
+        '<input class="filter" type="search" placeholder="过滤文件名…">' +
+        '<button class="btn pri" data-act="zip">打包全部 ZIP</button>' +
+        '<button class="btn" data-act="csv">导出索引 CSV</button>' +
+        '</div>' +
+        '<table class="ents"><thead><tr><th>#</th><th>文件名</th><th>类型</th><th>大小</th><th></th></tr></thead><tbody>' +
+        ents.map((e, i) => {
+          const t = extOf(e.name);
+          const g = guessByName(e.name);
+          return '<tr class="row' + (e.valid ? '' : ' bad') + '" data-i="' + i + '">' +
+            '<td>' + i + '</td>' +
+            '<td class="nm">' + esc(e.name) +
+            (g ? ' <span class="tag ' + g.cls + '">' + g.tag + '</span>' : '') +
+            (e.valid ? '' : ' <span class="tag t-bad">越界</span>') + '</td>' +
+            '<td>' + esc(t || '—') + '</td>' +
+            '<td class="num">' + human(e.size) + '</td>' +
+            '<td><button class="btn sm" data-act="dl" data-i="' + i + '">下载</button></td>' +
+            '</tr>';
+        }).join('') + '</tbody></table>';
+    },
+    mount(host, u8, name, opts) {
+      let info = SKSDAT.parseDAT(u8, name);
+      if (info.error) return;
+      // 切换 seed 会触发重渲染，这里用缓存把用户选的种子记下来，
+      // 否则重渲染后又回到自动探测值，下拉框看起来"点了没反应"
+      const ckey = name + '|' + u8.length;
+      if (SEED_CACHE.has(ckey)) info = SKSDAT.reparse(info, SEED_CACHE.get(ckey));
+      const tbody = host.querySelector('tbody');
+      const filter = host.querySelector('.filter');
+
+      const openEntry = (i) => {
+        const e = info.ents.filter(x => x.name)[i];
+        if (!e) return;
+        const sub = SKSDAT.getEntData(info, e);
+        const path = (opts && opts.path ? opts.path + ' › ' : '') + name + ' › ' + e.name;
+        if (opts && opts.onOpen) opts.onOpen(sub, e.name, path);
+      };
+
+      tbody.addEventListener('click', ev => {
+        const tr = ev.target.closest('tr.row');
+        if (!tr) return;
+        const i = parseInt(tr.dataset.i, 10);
+        if (ev.target.closest('[data-act="dl"]')) {
+          const e = info.ents.filter(x => x.name)[i];
+          download([SKSDAT.getEntData(info, e)], e.name);
+          return;
+        }
+        openEntry(i);
+      });
+
+      filter.addEventListener('input', () => {
+        const q = filter.value.toUpperCase();
+        tbody.querySelectorAll('tr.row').forEach(tr => {
+          const nm = tr.querySelector('.nm').textContent.toUpperCase();
+          tr.style.display = !q || nm.includes(q) ? '' : 'none';
+        });
+      });
+
+      host.querySelector('[data-act="zip"]').onclick = () => {
+        const files = [];
+        for (const e of info.ents) {
+          if (!e.name || !e.valid) continue;
+          files.push({ name: name.replace(/\.(dat|txt|bin)$/i, '') + '/' + e.name, data: SKSDAT.getEntData(info, e) });
+        }
+        if (!files.length) { alert('没有可导出的条目'); return; }
+        download(HDI.zipBuild(files), name.replace(/\.(dat|txt|bin)$/i, '') + '.zip');
+      };
+
+      host.querySelector('[data-act="csv"]').onclick = () => {
+        const lines = ['name,offset,size,valid'];
+        for (const e of info.ents) {
+          if (!e.name) continue;
+          lines.push([e.name, e.off, e.size, e.valid ? 1 : 0].join(','));
+        }
+        download([new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8' })],
+          name.replace(/\.(dat|txt|bin)$/i, '') + '_index.csv');
+      };
+
+      host.querySelector('.seedsel').addEventListener('change', ev => {
+        const seed = parseInt(ev.target.value, 10);
+        SEED_CACHE.set(ckey, seed);
+        info = SKSDAT.reparse(info, seed);
+        if (opts && opts.rerender) opts.rerender();
+      });
+    }
+  };
+
+  /* ---------------- 分发 ---------------- */
+  function dispatch(host, u8, name, opts) {
+    opts = opts || {};
+    const info = sniff(u8, name);
+    const r = RENDERERS[info.kind] || RENDERERS.bin;
+    host.innerHTML = r.html(u8, name, opts);
+    if (r.mount) {
+      try { r.mount(host, u8, name, opts); }
+      catch (e) { host.insertAdjacentHTML('afterbegin', '<div class="msg err">渲染出错：' + esc(e.message) + '</div>'); }
+    }
+    return info;
+  }
+
+  root.VIEWERS = { sniff, dispatch, download, hexDump, looksText, guessByName, KIND_NOTE, esc, human };
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+/* ---------------------------- 界面 ---------------------------- */
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const msgs = $('msgs'), drop = $('drop'), picker = $('picker');
+  const infoCard = $('infoCard'), filesCard = $('filesCard');
+  const prevCard = $('prevCard'), prevBody = $('prevBody'), prevTitle = $('prevTitle');
+  const prevPath = $('prevPath'), prevTag = $('prevTag'), prevBack = $('prevBack');
+  const listEl = $('list'), crumbEl = $('crumb'), bar = $('bar');
+  const importPicker = $('importPicker'), saveBtn = $('saveBtn'), dirtyTip = $('dirtyTip');
+  const spaceTip = $('spaceTip');
+  const V = window.VIEWERS;
+
+  let img = null, cwd = 0, trail = [];
+  let pvStack = [];   // 预览下钻栈：HDI 目录 -> SILK?.DAT -> 条目 -> …
+
+  function setDirty(on) {
+    dirtyTip.classList.toggle('hidden', !on);
+    saveBtn.disabled = !on;
+  }
+
+  function updateSpace() {
+    if (!img) return;
+    const { used, total } = img.usedBytes();
+    const free = total - used;
+    spaceTip.innerHTML = '已用 ' + human(used) + ' / 共 ' + human(total) +
+      ' · <b>剩余 ' + human(Math.max(free, 0)) + '</b>' +
+      (free <= 0 ? '（写满了）' : '');
+  }
+
+  function msg(text, kind) {
+    msgs.innerHTML = '';
+    if (!text) return;
+    const d = document.createElement('div');
+    d.className = 'msg ' + (kind || 'ok');
+    d.textContent = text;
+    msgs.appendChild(d);
+  }
+
+  function human(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+    return (n / 1048576).toFixed(2) + ' MB';
+  }
+
+  drop.onclick = () => picker.click();
+  picker.onchange = () => { if (picker.files[0]) handleIncoming(picker.files[0]); };
+  $('importBtn').onclick = () => importPicker.click();
+  $('soloBtn').onclick = () => $('soloPicker').click();
+  $('soloPicker').onchange = () => {
+    const f = $('soloPicker').files[0];
+    $('soloPicker').value = '';
+    if (f) openSolo(f);
+  };
+  ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.add('hot');
+  }));
+  ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.remove('hot');
+  }));
+  drop.addEventListener('drop', e => {
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) handleIncoming(f);
+  });
+
+  /* 进来的文件可能是镜像，也可能是已经解出来的 GP4 / MES / SILK?.DAT。
+     先按内容嗅探：认得出来就直接预览，认不出来才当镜像去解析。 */
+  const IMAGE_EXT = ['hdi','fdi','hdm','hdd','thd','vhd','img','bin','dsk','hd4','hd5','dd6','dd9'];
+  async function handleIncoming(file) {
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (!IMAGE_EXT.includes(ext)) {
+      const head = new Uint8Array(await file.slice(0, Math.min(4096, file.size)).arrayBuffer());
+      if (V.sniff(head, file.name).kind !== 'bin') { openSolo(file); return; }
+    }
+    load(file);
+  }
+
+  /* 不经过镜像，直接打开单个文件 */
+  async function openSolo(file) {
+    msg('正在读取 ' + file.name + ' …', 'ok');
+    const data = new Uint8Array(await file.arrayBuffer());
+    msg('');
+    pvStack = [];
+    openPreview(file.name, data, file.name);
+  }
+
+  async function load(file) {
+    msg('正在解析 ' + file.name + ' …', 'ok');
+    filesCard.classList.add('hidden');
+    infoCard.classList.add('hidden');
+    prevCard.classList.add('hidden');
+    try {
+      img = await new PC98HDI.HdiImage(file).open();
+    } catch (err) {
+      img = null;
+      msg('解析失败：' + err.message, 'err');
+      return;
+    }
+    msg('');
+    showInfo();
+    trail = [];
+    cwd = 0;
+    setDirty(false);
+    render();
+    filesCard.classList.remove('hidden');
+  }
+
+  function showInfo() {
+    const V = img.vol, H = img.hdr;
+    const rows = [
+      ['文件名', img.name],
+      ['文件大小', human(img.size) + '  (' + img.size.toLocaleString() + ' 字节)'],
+      ['容器格式', H.diskType],
+      ['几何参数', H.cyl ? (H.cyl + ' 柱面 / ' + H.heads + ' 磁头 / ' + H.spt + ' 扇区每道') : '—'],
+      ['物理扇区', H.physSec + ' 字节'],
+      ['分区引导扇区', '第 ' + Math.floor(V.volStart / V.physSec) + ' 个物理扇区（偏移 0x' + V.volStart.toString(16) + '，卷内第 ' + V.volSector + ' 扇区）'],
+      ['文件系统', 'FAT' + V.bits],
+      ['逻辑扇区 / 簇', V.bps + ' 字节 / ' + V.spc + ' 扇区 = ' + human(V.cs)],
+      ['保留 / FAT / 根目录', V.rsv + ' / ' + V.nfat + '×' + V.spf + ' / ' + V.rootent + ' 项'],
+      ['数据区起点', '第 ' + Math.floor(V.dataOff / V.physSec) + ' 个物理扇区（偏移 0x' + V.dataOff.toString(16) + '）'],
+      ['簇总数', V.nclus + ' 个（约 ' + human(V.nclus * V.cs) + '）'],
+    ];
+    $('infoTable').innerHTML = rows.map(([k, v]) =>
+      '<tr><td>' + k + '</td><td>' + String(v).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) + '</td></tr>'
+    ).join('');
+    infoCard.classList.remove('hidden');
+  }
+
+  function attrTags(e) {
+    const t = [];
+    if (e.volume) t.push('卷标');
+    if (e.dir) t.push('目录');
+    if (e.attr & 0x01) t.push('只读');
+    if (e.attr & 0x02) t.push('隐藏');
+    if (e.attr & 0x04) t.push('系统');
+    return t.map(x => '<span class="tag">' + x + '</span>').join('');
+  }
+
+  async function render() {
+    const entries = await img.listDir(cwd);
+    crumbEl.innerHTML = '';
+    const mk = (label, fn) => {
+      const b = document.createElement('button');
+      b.textContent = label; b.onclick = fn; crumbEl.appendChild(b);
+    };
+    mk('根目录', () => { trail = []; cwd = 0; render(); });
+    trail.forEach((t, i) => {
+      const s = document.createElement('span'); s.textContent = '›'; crumbEl.appendChild(s);
+      mk(t.name, () => { trail = trail.slice(0, i + 1); cwd = t.cluster; render(); });
+    });
+
+    listEl.innerHTML = '';
+    if (!entries.length) {
+      const li = document.createElement('li');
+      li.innerHTML = '<div class="meta"><div class="s">（空目录）</div></div>';
+      listEl.appendChild(li);
+    }
+    entries.sort((a, b) => (b.dir ? 1 : 0) - (a.dir ? 1 : 0) || a.name.localeCompare(b.name));
+    for (const e of entries) {
+      const li = document.createElement('li');
+      const kind = e.dir ? 'DIR' : (e.name.split('.').pop() || 'DAT').slice(0, 4).toUpperCase();
+      const icoCls = e.dir ? 'dir' : ((e.attr & 0x04) ? 'sys' : '');
+      // GP4 / MES / SILK?.DAT 这类能直接预览的，给个颜色徽章
+      const g = e.dir ? null : V.guessByName(e.name);
+      li.innerHTML =
+        '<div class="ico ' + icoCls + '">' + (e.dir ? '目录' : esc(kind)) + '</div>' +
+        '<div class="meta"><div class="n">' + esc(e.name) + attrTags(e) +
+        (g ? ' <span class="tag ' + g.cls + '">' + g.tag + '</span>' : '') + '</div>' +
+        '<div class="s">' + (e.dir ? '子目录' : human(e.size)) + ' · 起始簇 ' + e.cluster + '</div></div>';
+
+      const acts = document.createElement('div');
+      acts.className = 'acts';
+      if (e.dir) {
+        const b = document.createElement('button');
+        b.textContent = '进入';
+        b.onclick = () => { trail.push({ name: e.name, cluster: e.cluster }); cwd = e.cluster; render(); };
+        acts.appendChild(b);
+      } else {
+        const b1 = document.createElement('button');
+        b1.textContent = '预览';
+        b1.onclick = () => preview(e);
+        acts.appendChild(b1);
+      }
+      const b2 = document.createElement('button');
+      b2.textContent = '下载';
+      b2.onclick = () => e.dir ? zipSubdir(e) : saveOne(e);
+      acts.appendChild(b2);
+
+      if (!e.dir && !e.volume) {
+        const b3 = document.createElement('button');
+        b3.textContent = '删除';
+        b3.style.color = '#c0392b';
+        b3.onclick = () => removeEntry(e);
+        acts.appendChild(b3);
+      }
+      li.appendChild(acts);
+      listEl.appendChild(li);
+    }
+    updateSpace();
+  }
+
+  async function removeEntry(e) {
+    if (!confirm('删除「' + e.name + '」？\n删除后需要点"保存镜像"才会真正写入文件。')) return;
+    try {
+      await img.deleteAt(cwd, e.index);
+      msg('已删除 ' + e.name, 'ok');
+      setDirty(true);
+      await render();
+    } catch (err) {
+      msg('删除失败：' + err.message, 'err');
+    }
+  }
+
+  importPicker.onchange = async () => {
+    const files = [...importPicker.files];
+    importPicker.value = '';
+    if (!files.length || !img) return;
+    let ok = 0;
+    const errs = [];
+    for (const f of files) {
+      try {
+        const buf = new Uint8Array(await f.arrayBuffer());
+        await img.createFile(cwd, f.name, buf);
+        ok++;
+      } catch (e) { errs.push(f.name + '：' + e.message); }
+    }
+    if (ok) { setDirty(true); msg('已导入 ' + ok + ' 个文件到当前目录' + (errs.length ? '，' + errs.length + ' 个失败' : ''), ok ? 'ok' : 'err'); }
+    if (errs.length) msg(errs.join('\n'), 'err');
+    await render();
+  };
+
+  saveBtn.onclick = async () => {
+    if (!img) return;
+    bar.classList.remove('hidden');
+    bar.firstElementChild.style.width = '40%';
+    const parts = await img.exportParts();
+    bar.firstElementChild.style.width = '100%';
+    const m = img.name.match(/^(.*?)(\.[^.]+)?$/);
+    const outName = (m ? m[1] : img.name) + '_modified' + (m && m[2] ? m[2] : '.bin');
+    download(parts, outName);
+    setTimeout(() => bar.classList.add('hidden'), 1200);
+    setDirty(false);
+    msg('已导出 ' + outName + '（原镜像没有被改动）', 'ok');
+  };
+
+  function esc(s) {
+    return String(s).replace(/[<>&"]/g, c => ({ '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;' }[c]));
+  }
+
+  async function saveOne(e) {
+    try {
+      const data = await img.readEntry(e);
+      download([data], e.name);
+    } catch (err) { msg('读取失败：' + err.message, 'err'); }
+  }
+
+  function download(parts, name) {
+    const blob = new Blob(parts, { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 8000);
+  }
+
+  async function zipSubdir(dirEntry) {
+    const files = await img.walk(dirEntry.cluster, '');
+    if (!files.length) { msg('这个目录是空的', 'err'); return; }
+    await zipFiles(files, dirEntry.name + '.zip');
+  }
+
+  async function zipFiles(files, zipName) {
+    bar.classList.remove('hidden');
+    const fill = bar.firstElementChild;
+    const out = [];
+    for (let i = 0; i < files.length; i++) {
+      fill.style.width = Math.round(i / files.length * 100) + '%';
+      const data = await img.readEntry(files[i].entry);
+      out.push({ name: files[i].path, data });
+    }
+    fill.style.width = '100%';
+    const parts = PC98HDI.zipBuild(out);
+    download(parts, zipName);
+    setTimeout(() => bar.classList.add('hidden'), 1200);
+    msg('已打包 ' + out.length + ' 个文件：' + zipName, 'ok');
+  }
+
+  $('zipBtn').onclick = async () => {
+    if (!img) return;
+    bar.classList.remove('hidden');
+    const files = await img.walk(0, '');
+    if (!files.length) { bar.classList.add('hidden'); msg('镜像里没有可提取的文件', 'err'); return; }
+    const base = img.name.replace(/\.[^.]+$/, '');
+    await zipFiles(files, base + '.zip');
+  };
+
+  $('closeBtn').onclick = () => {
+    img = null; picker.value = '';
+    filesCard.classList.add('hidden');
+    infoCard.classList.add('hidden');
+    prevCard.classList.add('hidden');
+    setDirty(false);
+    msg('');
+  };
+
+  $('prevClose').onclick = () => { prevCard.classList.add('hidden'); pvStack = []; };
+  $('prevBack').onclick = () => { if (pvStack.length > 1) { pvStack.pop(); drawPreview(); } };
+
+  /* 从镜像里点"预览"进入 */
+  async function preview(e) {
+    try {
+      const data = await img.readEntry(e);
+      pvStack = [];
+      openPreview(e.name, data, currentPath() + e.name);
+    } catch (err) { msg('读取失败：' + err.message, 'err'); }
+  }
+
+  /* 当前目录路径（用于预览面包屑） */
+  function currentPath() {
+    if (!img) return '';
+    return trail.map(t => t.name).join(' › ') + (trail.length ? ' › ' : '');
+  }
+
+  /* 压栈并显示；sksdat 里点条目会递归调用这里，形成
+     HDI › AISHIMA › SILK0.DAT › WAKU.GP4 这样的下钻链路 */
+  function openPreview(name, data, path) {
+    pvStack.push({ name, data, path: path || name });
+    drawPreview();
+  }
+
+  function drawPreview() {
+    const top = pvStack[pvStack.length - 1];
+    if (!top) return;
+    prevCard.classList.remove('hidden');
+    prevTitle.textContent = top.name + '  ·  ' + human(top.data.length);
+    prevPath.textContent = top.path;
+    prevBack.classList.toggle('hidden', pvStack.length < 2);
+    const kind = V.dispatch(prevBody, top.data, top.name, {
+      path: top.path,
+      onOpen: (sub, subName, subPath) => openPreview(subName, sub, subPath),
+      rerender: drawPreview
+    });
+    prevTag.textContent = kind.label;
+    prevTag.className = 'tag t-' + kind.kind;
+    prevCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+})();
+</script>
+</body>
+</html>

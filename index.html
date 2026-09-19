@@ -53,10 +53,20 @@
     <div class="logo">PC-98 / Silky's / 1994</div>
     <h1>愛姉妹 逆向工具集</h1>
     <p>Silky's《愛姉妹》(1994, PC-98) 资源逆向工具，全部在浏览器本地运行，不上传任何数据。<br>
-       文件链路：<code>SILK?.DAT</code> → 解包 → <code>.MES</code> 剧本 / <code>.GP4</code> 图片</p>
+       文件链路：<code>SILK?.DAT</code> → 解包 → <code>.MES</code> 剧本 / <code>.GP4</code> 图片<br>
+       <b>只想用一个页面搞定全部？</b>直接用下面的 <b>一体工具箱</b>，镜像 + 归档 + 图片 + 剧本都在里面。</p>
   </header>
 
   <div class="grid">
+    <a class="tile" href="pc98-toolbox.html" style="border-color:var(--accent2);background:linear-gradient(180deg,#fffdf9,#fff)">
+      <div class="num">00 · ALL-IN-ONE</div>
+      <h2>PC-98 一体工具箱 ★</h2>
+      <p>单文件离线网页，一个页面通吃：<b>HDI/HDM/FDI 镜像</b>（FAT12/16 读写、导入导出）、
+         <b>SILK?.DAT</b> 解包、<b>.GP4</b> 图片渲染（可导出 PNG/MAG）、<b>.MES</b> 剧本解码。
+         支持拖拽、目录下钻、十六进制查看。</p>
+      <div class="badges"><span class="badge on">已上线</span><span class="badge">镜像读写</span><span class="badge">GP4/MES/DAT</span></div>
+    </a>
+
     <a class="tile" href="https://dragonxash.github.io/elf-dat-extra/">
       <div class="num">01 · DAT</div>
       <h2>SILK.DAT 解包器</h2>
@@ -81,13 +91,13 @@
       <div class="badges"><span class="badge on">已上线</span><span class="badge">16 色</span></div>
     </a>
 
-    <div class="tile" style="opacity:.6;cursor:default">
+    <a class="tile" href="pc98-toolbox.html">
       <div class="num">04 · MAG</div>
-      <h2>MAG 批量转换</h2>
-      <p>GP4 → MAG 批量转换（MAKI02 全 literal 写法），
-         回解校验 100% 通过，206 个文件验证。</p>
-      <div class="badges"><span class="badge wip">命令行工具</span></div>
-    </div>
+      <h2>GP4 → MAG 转换</h2>
+      <p>GP4 图片一键转 MAG（MAKI02 全 literal 写法），回解校验 100% 通过。
+         已并入上面的<b>一体工具箱</b>（GP4 预览页里的「转 MAG」按钮）。</p>
+      <div class="badges"><span class="badge on">已并入工具箱</span><span class="badge">MAKI02</span></div>
+    </a>
 
     <a class="tile" href="https://dragonxash.github.io/m-player/">
       <div class="num">05 · M</div>
